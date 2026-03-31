@@ -1,3 +1,6 @@
+seting up the ESP32-display for BLE/TTL input with data entry for mac addres and Key for any smart shunt device.
+
+
 ✅ Big Picture (Important First)
 Arduino IDE works like this:
 
