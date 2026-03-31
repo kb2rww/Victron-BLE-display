@@ -3,8 +3,8 @@
 
 enum KeypadMode {
   KP_NONE,
-  KP_MAC,
-  KP_KEY
+  KP_EDIT_MAC,
+  KP_EDIT_KEY
 };
 
 extern KeypadMode keypadMode;
