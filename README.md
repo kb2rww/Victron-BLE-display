@@ -1,4 +1,4 @@
-this is a test to see if i can have an ESP32-2432S032 development board to catch and display the BLE stream from a Victron 300A shunt that I mounted in my rig to monitor the secondary battery condition for my Ham radio gear.
+this is a test to see if i can have an ESP32-2432S032 development board to catch and display the BLE or TTL stream from a Victron 300A shunt that I mounted in my rig to monitor the secondary battery condition for my Ham radio gear.
 
 
 
