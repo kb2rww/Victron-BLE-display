@@ -1,8 +1,9 @@
 #include "storage.h"
 #include "datasource.h"
+
 #include <Preferences.h>
 
-Preferences prefs;
+static Preferences prefs;
 
 void storageInit() {
   prefs.begin("victron", false);
@@ -12,6 +13,6 @@ void loadSettings() {
   activeSource = (DataSource)prefs.getUChar("source", SOURCE_BLE);
 }
 
-void saveSettings() {
+void saveSourceSetting() {
   prefs.putUChar("source", activeSource);
 }
