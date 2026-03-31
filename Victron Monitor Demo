@@ -1,12 +1,16 @@
 /********************************************************************
  * ESP32‑2432S028R Victron Monitor Demo
  * ---------------------------------------------------------------
+ * by KB2RWW Bobby. Petersen
  * Features:
  *  - TFT display (ILI9341)
  *  - Touchscreen night‑mode toggle
  *  - Color‑coded current (green = charge, red = discharge)
  *  - SOC bar graph
  *  - Backlight dimming
+ *  - Install these from Library Manager:
+ *  - TFT_eSPI
+ *  - XPT2046_Touchscreen
  ********************************************************************/
 
 #include <TFT_eSPI.h>              // TFT display driver
