@@ -100,5 +100,17 @@ void drawPage() {
     case PAGE_BLE_SETUP:   drawBLESetup(); break;
     case PAGE_KEYPAD:      drawKeypad(); break;
     case PAGE_DIAG:        drawDiagnostics(); break;
-  }
+  };
+  
+enum DataSource {
+  SOURCE_BLE,
+  SOURCE_TTL
+};
+
+enum KeypadMode {
+  KP_NONE,
+  KP_EDIT_MAC,
+  KP_EDIT_KEY
+};
+
 }
