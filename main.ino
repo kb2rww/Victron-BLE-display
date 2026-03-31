@@ -1,6 +1,7 @@
 #include "ui.h"
 #include "datasource.h"
 #include "storage.h"
+#include "ota.h"
 
 void setup() {
   Serial.begin(115200);
@@ -10,7 +11,7 @@ void setup() {
   loadSettings();      // Load saved config
 
   datasourceInit();    // Start BLE or TTL based on config
-
+  otaInit();
   uiDrawCurrentPage();
 }
 
