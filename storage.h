@@ -3,5 +3,4 @@
 
 void storageInit();
 void loadSettings();
-void saveSettings();
-
+void saveSourceSetting();
