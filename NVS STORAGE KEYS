@@ -1,4 +1,0 @@
-"source"   → int (0=BLE,1=TTL)
-"blemac"   → string
-"blekey"   → bytes[16]
-"night"    → bool
