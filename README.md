@@ -91,9 +91,19 @@ Install these exact libraries:
 This step must be done manually, once.
 Open:
 Arduino/libraries/TFT_eSPI/User_Setup.h
-
 Make sure only these are enabled:
-C++#define ILI9341_DRIVER#define TFT_MISO 12#define TFT_MOSI 13#define TFT_SCLK 14#define TFT_CS   15#define TFT_DC   2#define TFT_RST  -1#define TFT_WIDTH  240#define TFT_HEIGHT 320``Show more lines
+#define ILI9341_DRIVER
+
+#define TFT_MISO 12
+#define TFT_MOSI 13
+#define TFT_SCLK 14
+#define TFT_CS   15
+#define TFT_DC   2
+#define TFT_RST  -1
+
+#define TFT_WIDTH  240
+#define TFT_HEIGHT 320
+``
 ✅ This is correct for ESP32‑2432S028R
 
 ✅ Step 7: Select the Correct Board & Settings
