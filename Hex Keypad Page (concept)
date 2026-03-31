@@ -1,5 +1,0 @@
-/*  0–9 A–F keypad, mapped to touches
- *  Edits MAC or KEY based on context
- *  Writes result to RAM
- *  Save → prefs.putString / putBytes
- */
