@@ -18,5 +18,6 @@ void setup() {
 void loop() {
   uiHandleTouch();     // Navigation & keypad
   datasourcePoll();    // BLE or VE.Direct
+  otaHandle();
   uiUpdate();          // Redraw on page change
 }
