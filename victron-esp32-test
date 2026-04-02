@@ -1,0 +1,300 @@
+/**********************************************************************
+ * ESP32‑2432S028R Victron SmartShunt Display
+ * -------------------------------------------------------------
+ * Layout:
+ *   V: 12.84V   S: 12.66V
+ *   I:-000.00A  P: 000W
+ *   Used / Time
+ *   Bottom SOC bar with % inside
+ *
+ * Style:
+ *   Black background
+ *   White text
+ *   Only current + SOC bar use color
+ **********************************************************************/
+
+#include <TFT_eSPI.h>
+#include <XPT2046_Touchscreen.h>
+#include <NimBLEDevice.h>
+//#include <AESLib.h>
+#include "mbedtls/aes.h"
+
+/******************** VICRON DEVICE DETAILS *************************/
+
+static NimBLEAddress victronAddress("c7:99:4b:5e:37:f5", BLE_ADDR_PUBLIC);
+
+uint8_t victronKey[16] = {
+  0xF8, 0x2C, 0x27, 0xC1,
+  0xB4, 0xD8, 0xFE, 0x78,
+  0x80, 0x2C, 0xF5, 0x2E,
+  0x39, 0xB6, 0x4D, 0xA1
+};
+
+/******************** HARDWARE PINS *********************************/
+
+#define TFT_BL     21
+#define TOUCH_CS  33
+#define TOUCH_IRQ 36
+
+/******************** OBJECTS ***************************************/
+
+TFT_eSPI tft;
+XPT2046_Touchscreen ts(TOUCH_CS, TOUCH_IRQ);
+
+
+NimBLEClient* client;
+NimBLERemoteCharacteristic* notifyChar;
+
+/******************** GLOBAL STATE **********************************/
+
+bool nightMode = false;
+unsigned long lastRefresh = 0;
+
+/******************** BATTERY DATA **********************************/
+
+struct VictronData {
+  float voltage;         // House battery
+  float starterVoltage;  // Starter battery
+  float current;
+  float power;
+  float soc;
+  float usedAh;
+  int   ttg;             // minutes
+};
+
+VictronData battery;
+
+/******************** VICTRON FIELD IDS *****************************/
+
+#define V_VOLT     0x04
+#define V_CURR     0x05
+#define V_USED     0x08
+#define V_SOC      0x0A
+#define V_STARTER  0x0E
+#define V_TTG      0x0F
+
+/******************** UI LAYOUT *************************************/
+
+#define SOC_BAR_X 10
+#define SOC_BAR_Y 210
+#define SOC_BAR_W 300
+#define SOC_BAR_H 22
+
+#define NIGHT_BTN_X 260
+#define NIGHT_BTN_Y 5
+#define NIGHT_BTN_W 50
+#define NIGHT_BTN_H 20
+
+/******************** AES DECRYPT ***********************************/
+
+void decrypt(uint8_t* data, size_t len) {
+  mbedtls_aes_context ctx;
+  mbedtls_aes_init(&ctx);
+
+  uint8_t iv[16] = {0};
+
+  mbedtls_aes_setkey_dec(&ctx, victronKey, 128);
+  mbedtls_aes_crypt_cbc(&ctx, MBEDTLS_AES_DECRYPT, len, iv, data, data);
+
+  mbedtls_aes_free(&ctx);
+}
+
+/******************** BLE NOTIFICATION CALLBACK *********************/
+
+void notifyCallback(
+  NimBLERemoteCharacteristic*,
+  uint8_t* data,
+  size_t len,
+  bool) {
+
+  decrypt(data, len);
+
+  for (int i = 0; i < len - 4; i++) {
+    uint8_t id = data[i];
+    int32_t v = data[i+1] |
+                (data[i+2] << 8) |
+                (data[i+3] << 16) |
+                (data[i+4] << 24);
+
+    switch (id) {
+      case V_VOLT:
+        battery.voltage = v / 1000.0;
+        break;
+
+      case V_STARTER:
+        battery.starterVoltage = v / 1000.0;
+        break;
+
+      case V_CURR:
+        battery.current = v / 1000.0;
+        battery.power = battery.voltage * battery.current;
+        break;
+
+      case V_USED:
+        battery.usedAh = v / 1000.0;
+        break;
+
+      case V_SOC:
+        battery.soc = v / 10.0;
+        break;
+
+      case V_TTG:
+        battery.ttg = v / 60;
+        break;
+    }
+  }
+}
+
+/******************** BLE CONNECT **********************************/
+
+void connectVictron() {
+  NimBLEDevice::init("");
+  client = NimBLEDevice::createClient();
+  if (!client->connect(victronAddress)) return;
+
+  NimBLERemoteService* svc = client->getService("fff0");
+  notifyChar = svc->getCharacteristic("fff1");
+  notifyChar->subscribe(true, notifyCallback);
+}
+
+/******************** SETUP ***************************************/
+
+void setup() {
+  Serial.begin(115200);
+
+  tft.init();
+  tft.setRotation(1);
+  tft.fillScreen(TFT_BLACK);
+
+  ledcAttachPin(TFT_BL, 0);
+  ledcSetup(0, 5000, 8);
+  ledcWrite(0, 200);
+
+  ts.begin();
+  ts.setRotation(1);
+
+  drawHeader();
+  connectVictron();
+}
+
+/******************** LOOP ****************************************/
+
+void loop() {
+  handleTouch();
+  redraw();
+}
+
+/******************** REDRAW **************************************/
+
+void redraw() {
+  if (millis() - lastRefresh < 1000) return;
+
+  tft.fillRect(0, 30, 320, 180, TFT_BLACK);
+  drawBattery();
+  drawSOCBar(battery.soc);
+
+  lastRefresh = millis();
+}
+
+/******************** HEADER **************************************/
+
+void drawHeader() {
+  tft.fillRect(0, 0, 320, 30, TFT_BLACK);
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(10, 8);
+  tft.print("Victron SmartShunt");
+
+  drawNightIcon();
+}
+
+/******************** BATTERY TEXT ********************************/
+
+void drawBattery() {
+  tft.setTextFont(4);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+
+  // Line 1: House + Starter Voltage
+  tft.setCursor(10, 40);
+  tft.printf("V:%5.2fV  S:%5.2fV",
+             battery.voltage,
+             battery.starterVoltage);
+
+  // Line 2: Current (colored) + Power
+  uint16_t curColor =
+    battery.current > 0.2 ? TFT_GREEN :
+    battery.current < -0.2 ? TFT_RED :
+    TFT_WHITE;
+
+  tft.setCursor(10, 80);
+  tft.setTextColor(curColor, TFT_BLACK);
+  tft.printf("I:%+07.2fA", battery.current);
+
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(170, 80);
+  tft.printf("P:%4.0fW", battery.power);
+
+  // Line 3: Used Ah
+  tft.setCursor(10, 120);
+  tft.printf("Used:%6.1fAh", battery.usedAh);
+
+  // Line 4: Time to go
+  int h = battery.ttg / 60;
+  int m = battery.ttg % 60;
+  tft.setCursor(10, 160);
+  tft.printf("Time:%3dh %02dm", h, m);
+}
+
+/******************** SOC BAR *************************************/
+
+void drawSOCBar(float soc) {
+  soc = constrain(soc, 0, 100);
+
+  uint16_t fill =
+    soc < 20 ? TFT_RED :
+    soc < 50 ? TFT_YELLOW :
+               TFT_GREEN;
+
+  tft.drawRect(SOC_BAR_X, SOC_BAR_Y, SOC_BAR_W, SOC_BAR_H, TFT_WHITE);
+
+  tft.fillRect(
+    SOC_BAR_X + 1,
+    SOC_BAR_Y + 1,
+    (SOC_BAR_W - 2) * soc / 100.0,
+    SOC_BAR_H - 2,
+    fill
+  );
+
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(SOC_BAR_X + 135, SOC_BAR_Y + 6);
+  tft.printf("%.1f %%", soc);
+}
+
+/******************** TOUCH HANDLING *******************************/
+
+void handleTouch() {
+  if (!ts.touched()) return;
+
+  TS_Point p = ts.getPoint();
+  int x = map(p.x, 200, 3800, 0, 320);
+  int y = map(p.y, 200, 3800, 0, 240);
+
+  if (x > NIGHT_BTN_X && x < NIGHT_BTN_X + NIGHT_BTN_W &&
+      y > NIGHT_BTN_Y && y < NIGHT_BTN_Y + NIGHT_BTN_H) {
+
+    nightMode = !nightMode;
+    ledcWrite(0, nightMode ? 40 : 200);
+    drawHeader();
+    delay(300);
+  }
+}
+
+/******************** NIGHT ICON **********************************/
+
+void drawNightIcon() {
+  tft.setTextFont(2);
+  tft.setTextColor(TFT_WHITE, TFT_BLACK);
+  tft.setCursor(NIGHT_BTN_X + 8, NIGHT_BTN_Y + 5);
+  tft.print(nightMode ? "NITE" : "DAY ");
+}
